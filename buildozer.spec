@@ -1,40 +1,26 @@
 [app]
-
-# (str) Title of your application
 title = Travel Assistant
-
-# (str) Package name
 package.name = travelassistant
-
-# (str) Package domain (needed for android/ios packaging)
 package.domain = org.travelassistant
-
-# (str) Application version (required)
 version = 1.0
-
-# (str) Source code where the main.py live
 source.dir = .
-
-# (list) Source files to include (let empty to include all the files)
 source.include_exts = py,png,jpg,kv,atlas,db
-
-# (list) Application requirements
 requirements = python3,kivy==2.3.0,kivy_garden.mapview,plyer,yt-dlp,android,pyjnius
-
-# (str) Supported orientations (one of landscape, sensorLandscape, portrait or all)
 orientation = portrait
-
-# (bool) Indicate if the application should be fullscreen or not
-fullscreen = 0
-
-# (str) The Android arch to build for, choices: armeabi-v7a, arm64-v8a, x86, x86_64
 android.archs = arm64-v8a, armeabi-v7a
-
-# (int) Android API level to use
 android.api = 33
-
-# (int) Minimum API required
 android.minapi = 21
+android.sdk = 33
+android.ndk = 25c
+android.accept_sdk_license = True
+android.permissions = INTERNET, ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE, POST_NOTIFICATIONS, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE
+p4a.branch = develop
+p4a.bootstrap = sdl2
+android.use_androidx = True
+
+[buildozer]
+log_level = 2
+warn_on_root = 0android.minapi = 21
 
 # (int) Android SDK version to use
 android.sdk = 33
