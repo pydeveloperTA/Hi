@@ -8,13 +8,28 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: kivy/buildozer:latest
+    container:
+      image: kivy/buildozer:latest
+      options: --user root
 
     steps:
-      - uses: actions/checkout@v4
-      - run: echo "y" | buildozer android debug
-      - run: find . -name "*.apk" -exec ls -lh {} \;
-      - uses: actions/upload-artifact@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build APK
+        run: |
+          echo "y" | buildozer android debug
+          # Find the generated APK (usually deep inside .buildozer)
+          APK_PATH=$(find . -name "*.apk" -not -path "*/.buildozer/android/platform/*-debug.apk" -path "*/dists/*.apk" | head -1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find . -name "*.apk" | head -1)
+          fi
+          echo "Found APK at: $APK_PATH"
+          mkdir -p bin
+          cp "$APK_PATH" bin/TravelAssistant.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: TravelAssistant
-          path: "**/*.apk"
+          path: bin/TravelAssistant.apk
