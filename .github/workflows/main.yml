@@ -1,0 +1,152 @@
+name: Build Android APK 🚀
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      release_upload:
+        description: 'Upload as release? (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 📦 Install System Dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            build-essential \
+            autoconf \
+            libtool \
+            pkg-config \
+            libssl-dev \
+            libffi-dev \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
+            cmake \
+            openjdk-17-jdk \
+            git \
+            wget \
+            curl \
+            unzip \
+            zip \
+            libltdl-dev
+
+      - name: 🎯 Setup Buildozer & Cython
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython==0.29.33
+
+      - name: 📱 Setup Android SDK
+        env:
+          ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+        run: |
+          mkdir -p $ANDROID_SDK_ROOT
+          cd $ANDROID_SDK_ROOT
+          
+          # Download Android Command Line Tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          
+          # Set up directory structure
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+          
+          # Accept licenses
+          yes | cmdline-tools/latest/bin/sdkmanager --licenses
+          
+          # Install required SDK packages
+          cmdline-tools/latest/bin/sdkmanager \
+            "platform-tools" \
+            "build-tools;34.0.0" \
+            "build-tools;33.0.0" \
+            "platforms;android-34" \
+            "platforms;android-33" \
+            "cmake;3.22.1"
+
+      - name: 🛠️ Setup Android NDK
+        env:
+          ANDROID_NDK_HOME: ${{ github.workspace }}/android-ndk
+        run: |
+          mkdir -p $ANDROID_NDK_HOME
+          cd $ANDROID_NDK_HOME
+          
+          # Download NDK r25c
+          wget -q https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
+          unzip -q android-ndk-r25c-linux.zip
+          
+          # Move contents up one level
+          mv android-ndk-r25c/* .
+          rm -rf android-ndk-r25c android-ndk-r25c-linux.zip
+
+      - name: 🏗️ Build APK with Buildozer
+        env:
+          ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+          ANDROID_NDK_HOME: ${{ github.workspace }}/android-ndk
+        run: |
+          export ANDROID_SDK_ROOT=${{ github.workspace }}/android-sdk
+          export ANDROID_NDK_HOME=${{ github.workspace }}/android-ndk
+          
+          echo "Starting Buildozer build..."
+          buildozer android debug 2>&1 | tee build.log
+
+      - name: 📋 Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 7
+
+      - name: 📱 Upload APK Artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TravelAssistant-debug
+          path: bin/*.apk
+          retention-days: 90
+
+      - name: 🎉 Create GitHub Release
+        if: success() && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Latest Build - ${{ github.sha }}
+          tag_name: build-${{ github.run_number }}
+          files: bin/*.apk
+          generate_release_notes: true
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    needs: build
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: ✅ Build Success Notification
+        if: needs.build.result == 'success'
+        run: |
+          echo "🎉 APK Build Successful!"
+          echo "Download from the Artifacts section or Releases page"
+
+      - name: ❌ Build Failure Notification
+        if: needs.build.result == 'failure'
+        run: |
+          echo "💥 APK Build Failed!"
+          echo "Check the build log artifact for details"
