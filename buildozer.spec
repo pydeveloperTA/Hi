@@ -17,7 +17,13 @@ buildozer.warn_on_root = 0
 # Android SDK/NDK (match what's in the container)
 android.sdk = 31
 android.ndk = 23b
+android.api = 31
 android.accept_sdk_license = True
+buildozer.warn_on_root = 0android.sdk = 31
+android.ndk = 23b
+android.api = 31
+android.accept_sdk_license = True
+buildozer.warn_on_root = 0
 
 # API levels
 android.api = 31
