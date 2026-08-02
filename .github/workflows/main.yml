@@ -1,4 +1,4 @@
-name: Build APK (Quick)
+name: Build Android APK 🚀
 
 on:
   push:
@@ -8,28 +8,128 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: kivy/buildozer:latest
 
     steps:
-      - name: Checkout
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Fix SDK
-        run: |
-          mkdir -p /opt/android-sdk/licenses
-          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > /opt/android-sdk/licenses/android-sdk-license
-          mkdir -p ~/.android/licenses
-          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > ~/.android/licenses/android-sdk-license
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-      - name: Build
+      - name: 📦 Install System Dependencies
         run: |
-          export ANDROID_SDK_ROOT=/opt/android-sdk
-          export ANDROID_NDK_HOME=/opt/android-ndk
-          buildozer android debug
+          sudo dpkg --add-architecture i386
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            build-essential \
+            autoconf \
+            libtool \
+            pkg-config \
+            libssl-dev \
+            libffi-dev \
+            zlib1g-dev \
+            libncurses-dev \
+            cmake \
+            openjdk-17-jdk \
+            git \
+            wget \
+            curl \
+            unzip \
+            zip \
+            python3-pip \
+            python3-dev \
+            python3-venv
 
-      - name: Upload APK
+      - name: 🎯 Setup Buildozer
+        run: |
+          python3 -m pip install --upgrade pip setuptools wheel
+          python3 -m pip install buildozer cython==0.29.33 virtualenv
+
+      - name: 📱 Setup Android SDK
+        env:
+          ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+        run: |
+          mkdir -p $ANDROID_SDK_ROOT
+          cd $ANDROID_SDK_ROOT
+          
+          # Download Android Command Line Tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          
+          # Set up directory structure
+          mkdir -p cmdline-tools/latest
+          cp -r cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+          
+          # Accept licenses
+          yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
+          
+          # Install required SDK packages
+          cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT \
+            "platform-tools" \
+            "build-tools;33.0.0" \
+            "platforms;android-33"
+
+      - name: 🛠️ Setup Android NDK
+        env:
+          ANDROID_NDK_HOME: ${{ github.workspace }}/android-ndk
+        run: |
+          mkdir -p $ANDROID_NDK_HOME
+          cd $ANDROID_NDK_HOME
+          
+          # Download NDK r25c
+          wget -q https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
+          unzip -q android-ndk-r25c-linux.zip
+          
+          # Move contents up one level
+          cp -r android-ndk-r25c/* .
+          rm -rf android-ndk-r25c android-ndk-r25c-linux.zip
+
+      - name: 🔍 Debug Environment
+        run: |
+          echo "=== Python Version ==="
+          python3 --version
+          
+          echo "=== Java Version ==="
+          java -version 2>&1 || true
+          
+          echo "=== SDK Contents ==="
+          ls -la ${{ github.workspace }}/android-sdk/
+          
+          echo "=== NDK Contents ==="
+          ls -la ${{ github.workspace }}/android-ndk/
+          
+          echo "=== Buildozer Version ==="
+          buildozer version
+
+      - name: 🏗️ Build APK with Buildozer
+        env:
+          ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+          ANDROID_NDK_HOME: ${{ github.workspace }}/android-ndk
+        run: |
+          export ANDROID_SDK_ROOT=${{ github.workspace }}/android-sdk
+          export ANDROID_NDK_HOME=${{ github.workspace }}/android-ndk
+          
+          echo "Building APK..."
+          echo "y" | buildozer android debug 2>&1 | tee build.log || true
+          
+          echo "=== Build Complete ==="
+          ls -la bin/ || echo "No bin directory"
+
+      - name: 📋 Show Build Log On Error
+        if: failure()
+        run: |
+          echo "=== BUILD LOG ==="
+          cat build.log 2>/dev/null || echo "No build log"
+          
+          echo "=== Searching for APK ==="
+          find . -name "*.apk" 2>/dev/null || echo "No APK found"
+
+      - name: 📱 Upload APK Artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: TravelAssistant
+          name: TravelAssistant-debug
           path: bin/*.apk
+          retention-days: 90
