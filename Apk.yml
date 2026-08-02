@@ -1,0 +1,20 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: kivy/buildozer:latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "y" | buildozer android debug
+      - run: find . -name "*.apk" -exec ls -lh {} \;
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TravelAssistant
+          path: "**/*.apk"
