@@ -13,23 +13,24 @@ jobs:
       options: --user root
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build APK
+      - name: Build the APK
         run: |
-          echo "y" | buildozer android debug
-          # Find the generated APK (usually deep inside .buildozer)
-          APK_PATH=$(find . -name "*.apk" -not -path "*/.buildozer/android/platform/*-debug.apk" -path "*/dists/*.apk" | head -1)
-          if [ -z "$APK_PATH" ]; then
-            APK_PATH=$(find . -name "*.apk" | head -1)
-          fi
-          echo "Found APK at: $APK_PATH"
-          mkdir -p bin
-          cp "$APK_PATH" bin/TravelAssistant.apk
+          echo "y" | buildozer android debug 2>&1 | tee buildozer.log
+          echo "====== ALL APK FILES ======"
+          find . -type f -name "*.apk" -exec ls -lh {} \;
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: TravelAssistant
-          path: bin/TravelAssistant.apk
+          path: "**/*.apk"
+
+      - name: Upload build log (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: buildozer.log
